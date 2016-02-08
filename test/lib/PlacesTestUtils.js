@@ -11,6 +11,26 @@ XPCOMUtils.defineLazyModuleGetter(this, "PlacesUtils",
   "resource://gre/modules/PlacesUtils.jsm");
 
 const PlacesTestUtils = Object.freeze({
+
+  /**
+   * Asynchronously verifies that a number of rows is present
+   */
+  expectCount: Task.async(function*(expectation) {
+    let conn = yield PlacesUtils.promiseDBConnection();
+    let aSql = "select count(*) from moz_historyvisits";
+    let num = yield new Promise((resolve, reject) => {
+      conn.executeCached(aSql, null, aRow => {
+        let rowCount = aRow.getResultByIndex(0);
+        if (expectation && rowCount != expectation) {
+          reject(new Error(`row count failure: expected ${expectation} got ${rowCount}`));
+          return;
+        }
+        resolve(rowCount);
+      });
+    });
+    return num;
+  }),
+
   /**
    * Asynchronously adds visits to a page.
    *
@@ -24,12 +44,11 @@ const PlacesTestUtils = Object.freeze({
    *            [optional] visitDate: visit date in microseconds from the epoch
    *            [optional] referrer: nsIURI of the referrer for this visit
    *          }
-   *
-   * @return {Promise}
-   *            resolves When all visits have been added successfully.
-   *            rejects JavaScript exception.
    */
   addVisits: Task.async(function*(placeInfo) {
+    let numPlaces = yield this.expectCount();
+    let expected = numPlaces;
+
     let promise = new Promise((resolve, reject) => {
       let places = [];
       if (placeInfo instanceof Ci.nsIURI) {
@@ -39,6 +58,7 @@ const PlacesTestUtils = Object.freeze({
       } else {
         places.push(placeInfo);
       }
+      expected += places.length;
 
       // Create mozIVisitInfo for each entry.
       let now = Date.now();
@@ -69,7 +89,9 @@ const PlacesTestUtils = Object.freeze({
         }
       );
     });
-    return (yield promise);
+
+    yield promise;
+    yield this.expectCount(expected);
   }),
 
   /**
