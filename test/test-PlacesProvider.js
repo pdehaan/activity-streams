@@ -40,7 +40,8 @@ exports.test_Links_getTopFrecentSites = function(assert, done) {
 
     // add a visit
     let testURI = NetUtil.newURI("http://mozilla.com");
-    yield PlacesTestUtils.addVisits(testURI);
+    let numAdded = yield PlacesTestUtils.addVisits(testURI);
+    assert.equal(numAdded, 1, "correct number added");
 
     links = yield provider.getTopFrecentSites();
     assert.equal(links.length, 1, "adding a visit yields a link");
@@ -77,7 +78,8 @@ exports.test_Links_getTopFrecentSites_Order = function(assert, done) {
 
     let links = yield provider.getTopFrecentSites();
     assert.equal(links.length, 0, "empty history yields empty links");
-    yield PlacesTestUtils.addVisits(visits);
+    let numAdded = yield PlacesTestUtils.addVisits(visits);
+    assert.equal(numAdded, visits.length, "correct number added");
 
     links = yield provider.getTopFrecentSites();
     assert.equal(links.length, visits.length, "number of links added is the same as obtain by getTopFrecentSites");
@@ -118,7 +120,8 @@ exports.test_Links_onLinkChanged = function(assert, done) {
 
     // add a visit
     let testURI = NetUtil.newURI(url);
-    yield PlacesTestUtils.addVisits(testURI);
+    let numAdded = yield PlacesTestUtils.addVisits(testURI);
+    assert.equal(numAdded, 1, "correct number added");
     yield linkChangedPromise;
 
     provider.uninit();
@@ -143,7 +146,8 @@ exports.test_Links_onClearHistory = function(assert, done) {
     for (let i = 0; i <= 10; i++) {
       let url = `https://example.com/onClearHistory${i}`;
       let testURI = NetUtil.newURI(url);
-      yield PlacesTestUtils.addVisits(testURI);
+      let numAdded = yield PlacesTestUtils.addVisits(testURI);
+      assert.equal(numAdded, 1, "correct number added");
     }
     yield PlacesTestUtils.clearHistory();
     yield clearHistoryPromise;
@@ -169,7 +173,8 @@ exports.test_Links_onDeleteURI = function(assert, done) {
     });
 
     let testURI = NetUtil.newURI(testURL);
-    yield PlacesTestUtils.addVisits(testURI);
+    let numAdded = yield PlacesTestUtils.addVisits(testURI);
+    assert.equal(numAdded, 1, "correct number added");
     yield PlacesUtils.history.remove(testURL);
     yield deleteURIPromise;
     provider.uninit();
@@ -193,7 +198,8 @@ exports.test_Links_onManyLinksChanged = function(assert, done) {
 
     let testURL = "https://example.com/toDelete";
     let testURI = NetUtil.newURI(testURL);
-    yield PlacesTestUtils.addVisits(testURI);
+    let numAdded = yield PlacesTestUtils.addVisits(testURI);
+    assert.equal(numAdded, 1, "correct number added");
 
     // trigger DecayFrecency
     PlacesUtils.history.QueryInterface(Ci.nsIObserver).

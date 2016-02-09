@@ -68,9 +68,9 @@ const PlacesTestUtils = Object.freeze({
       );
     });
 
+    let urlCount = 0;
     let historyPromise = new Promise(resolve => {
       let urlSet = new Set(places.map(place => place.uri.spec));
-      let urlCount = 0;
       let historyObserver = {
         onFrecencyChanged(aURI) {
           if (urlSet.has(aURI.spec)) {
@@ -78,7 +78,7 @@ const PlacesTestUtils = Object.freeze({
           }
           if (urlCount === urlSet.size) {
             PlacesUtils.history.removeObserver(historyObserver);
-            resolve();
+            resolve(urlCount);
           }
         },
         QueryInterface: XPCOMUtils.generateQI([Ci.nsINavHistoryObserver,
@@ -89,6 +89,7 @@ const PlacesTestUtils = Object.freeze({
 
     yield promise;
     yield historyPromise;
+    return urlCount;
   }),
 
   /**
