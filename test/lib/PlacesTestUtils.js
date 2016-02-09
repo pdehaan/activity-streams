@@ -13,25 +13,6 @@ XPCOMUtils.defineLazyModuleGetter(this, "PlacesUtils",
 const PlacesTestUtils = Object.freeze({
 
   /**
-   * Asynchronously verifies that a number of rows is present
-   */
-  expectCount: Task.async(function*(expectation) {
-    let conn = yield PlacesUtils.promiseDBConnection();
-    let aSql = "select count(*) from moz_historyvisits";
-    let num = yield new Promise((resolve, reject) => {
-      conn.executeCached(aSql, null, aRow => {
-        let rowCount = aRow.getResultByIndex(0);
-        if (expectation && rowCount != expectation) {
-          reject(new Error(`row count failure: expected ${expectation} got ${rowCount}`));
-          return;
-        }
-        resolve(rowCount);
-      });
-    });
-    return num;
-  }),
-
-  /**
    * Asynchronously adds visits to a page.
    *
    * @param {nsIURI} placeInfo
@@ -46,20 +27,17 @@ const PlacesTestUtils = Object.freeze({
    *          }
    */
   addVisits: Task.async(function*(placeInfo) {
-    let numPlaces = yield this.expectCount();
-    let expected = numPlaces;
+    let places = [];
+
+    if (placeInfo instanceof Ci.nsIURI) {
+      places.push({uri: placeInfo});
+    } else if (Array.isArray(placeInfo)) {
+      places = places.concat(placeInfo);
+    } else {
+      places.push(placeInfo);
+    }
 
     let promise = new Promise((resolve, reject) => {
-      let places = [];
-      if (placeInfo instanceof Ci.nsIURI) {
-        places.push({uri: placeInfo});
-      } else if (Array.isArray(placeInfo)) {
-        places = places.concat(placeInfo);
-      } else {
-        places.push(placeInfo);
-      }
-      expected += places.length;
-
       // Create mozIVisitInfo for each entry.
       let now = Date.now();
       for (let place of places) {
@@ -90,8 +68,27 @@ const PlacesTestUtils = Object.freeze({
       );
     });
 
+    let historyPromise = new Promise(resolve => {
+      let urlSet = new Set(places.map(place => place.uri.spec));
+      let urlCount = 0;
+      let historyObserver = {
+        onFrecencyChanged(aURI) {
+          if (urlSet.has(aURI.spec)) {
+            urlCount++;
+          }
+          if (urlCount === urlSet.size) {
+            PlacesUtils.history.removeObserver(historyObserver);
+            resolve();
+          }
+        },
+        QueryInterface: XPCOMUtils.generateQI([Ci.nsINavHistoryObserver,
+                                               Ci.nsISupportsWeakReference])
+      };
+      PlacesUtils.history.addObserver(historyObserver, true);
+    });
+
     yield promise;
-    yield this.expectCount(expected);
+    yield historyPromise;
   }),
 
   /**
